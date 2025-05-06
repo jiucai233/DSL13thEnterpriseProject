@@ -1,0 +1,7 @@
+class_num: 3
+names:
+- delivery box
+- food
+- hand
+train: D:\my_codes\DSL13thEnterpriseProject\data\labelled_data4OBJ\train
+val: D:\my_codes\DSL13thEnterpriseProject\data\labelled_data4OBJ\test

@@ -1,0 +1,7 @@
+nc: 3
+names:
+- delivery box
+- food
+- hand
+train: D:\my_codes\DSL13thEnterpriseProject\data\labelled_data\train
+val: D:\my_codes\DSL13thEnterpriseProject\data\labelled_data\test
