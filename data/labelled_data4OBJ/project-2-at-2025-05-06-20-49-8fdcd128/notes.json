@@ -1,0 +1,25 @@
+{
+  "categories": [
+    {
+      "id": 0,
+      "name": "closed delivery box"
+    },
+    {
+      "id": 1,
+      "name": "delivery box"
+    },
+    {
+      "id": 2,
+      "name": "food"
+    },
+    {
+      "id": 3,
+      "name": "hand"
+    }
+  ],
+  "info": {
+    "year": 2025,
+    "version": "1.0",
+    "contributor": "Label Studio"
+  }
+}
