@@ -15,7 +15,7 @@ LABEL_DIR = 'labels'
 TRAIN_RATIO = 0.8
 
 # Define the classes
-CLASSES = ['delivery box','food', 'hand']
+CLASSES = ['closed delivery box','delivery box','food', 'hand']
 
 def split_data():
     # Create the train and test directories if they don't exist
@@ -90,7 +90,7 @@ def eval_model():
     metrics = model.val(data='data.yaml')
 
 if __name__ == '__main__':
-    # split_data()
-    # create_data_yaml()
-    # train_model()
+    split_data()
+    create_data_yaml()
+    train_model()
     eval_model()

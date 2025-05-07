@@ -8,16 +8,17 @@ from ultralytics import YOLO
 
 model = YOLO('D:/my_codes/DSL13thEnterpriseProject/runs/detect/train/weights/best.pt')#change!!
 results = model.predict(
-    source='D:/my_codes/DSL13thEnterpriseProject/data/image_data/250504_pm_08.52.28_brown_clear_num=4/frame_001980.jpg',#change!!
-    show=True,  
+    source='D:/my_codes/DSL13thEnterpriseProject/data/raw_data/clear_vid_test_box2.mp4',#change!!
+    show=True,
+    save=True,  
     conf=0.5,   
 )
-annotated_img = results[0].plot()
+# annotated_img = results[0].plot()
 
 
-plt.imshow(annotated_img[:, :, ::-1])  # BGR2RGB
-plt.axis('off')
-plt.show()
+# plt.imshow(annotated_img[:, :, ::-1])  # BGR2RGB
+# plt.axis('off')
+# plt.show()
 
 
 
