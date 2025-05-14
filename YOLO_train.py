@@ -90,7 +90,7 @@ def eval_model():
     metrics = model.val(data='data.yaml')
 
 if __name__ == '__main__':
-    split_data()
-    create_data_yaml()
-    train_model()
+    # split_data()
+    # create_data_yaml()
+    # train_model()
     eval_model()
