@@ -57,7 +57,7 @@ def preprocess_video(video_path, sample_rate=1, resize_dim=None):
                 frame = cv2.resize(frame, resize_dim)
             
             # Save the image
-            output_path = os.path.join(output_folder, f"frame_{frame_idx:06d}.jpg")
+            output_path = os.path.join(output_folder, f"frame_{frame_idx:04d}.jpg")
             cv2.imwrite(output_path, frame)
             saved_count += 1
             
@@ -147,6 +147,6 @@ if __name__ == "__main__":
         i+=1
         # 处理视频
         video = os.path.join(video_path, video)
-        preprocess_video(video, sample_rate=30, resize_dim=(640, 480))
+        preprocess_video(video, sample_rate=15, resize_dim=(640, 480))
     
 print("all done")

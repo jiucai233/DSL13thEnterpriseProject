@@ -1,8 +1,0 @@
-names:
-- closed delivery box
-- delivery box
-- food
-- hand
-nc: 4
-train: D:\my_codes\DSL13thEnterpriseProject\data\labelled_data4OBJ\train
-val: D:\my_codes\DSL13thEnterpriseProject\data\labelled_data4OBJ\test
