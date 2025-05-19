@@ -1,0 +1,4 @@
+.venv
+crops
+data/DatasetWithoutBrown
+data/raw_data -f

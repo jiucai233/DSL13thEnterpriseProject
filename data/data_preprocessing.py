@@ -147,6 +147,6 @@ if __name__ == "__main__":
         i+=1
         # 处理视频
         video = os.path.join(video_path, video)
-        preprocess_video(video, sample_rate=15, resize_dim=(640, 480))
+        preprocess_video(video, sample_rate=5, resize_dim=(640, 480))
     
 print("all done")

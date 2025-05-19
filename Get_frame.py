@@ -1,46 +1,60 @@
 import cv2
 from collections import defaultdict, deque
 from ultralytics import YOLO
+import pickle
+import cv2
+import os
+from ultralytics import YOLO
 
-# 初始化
-model = YOLO('best.pt')  # 加载你的多目标检测模型
-cap = cv2.VideoCapture("你的视频源")  # 支持文件/RTSP/HTTP
+model = YOLO("best.pt")
+video_path = "data/raw_data/250503_pm_07.13.53_brown_clear_num=4.mp4"
+cap = cv2.VideoCapture(video_path)
 
-# 为每个盒子维护独立的状态和帧缓冲区
-box_buffers = defaultdict(lambda: deque(maxlen=5))  # 格式: {box_id: deque(frames)}
-previous_statuses = {}  # 格式: {box_id: "open"或"closed"}
+# output directory for saving cropped images
+save_dir = "crops"
+os.makedirs(save_dir, exist_ok=True)
 
-frame_count = 0
+# initialize variables
+last_class_per_id = {}
+frame_id = 0
 
+# set epsilon( epsilon is the number of frames to save before the transition)
+epsilon = 5
+frame_buffer = deque(maxlen=epsilon)
+detection_buffer = deque(maxlen=epsilon)
 while True:
-    ret, frame = cap.read()
-    if not ret: break
+    success, frame = cap.read()
+    if not success:
+        break
+
+    results = model.track(frame, persist=True, verbose=False, tracker="bytetrack.yaml")[0]
     
-    results = model(frame, verbose=False)[0]
-    
-    # 遍历当前帧所有检测到的盒子
-    for box in results.boxes:
-        box_id = int(box.id[0]) if box.id else None  # 如果模型支持ID追踪，否则用坐标哈希
-        if box_id is None:
-            box_id = hash(tuple(map(int, box.xyxy[0])))  # 用边界框坐标作为临时ID
-        
-        current_status = model.names[int(box.cls)]  # 当前盒子状态
-        
-        # 状态变化检测 (open -> closed)
-        if previous_statuses.get(box_id) == "delivery box" and current_status == "closed delivery box":
-            if len(box_buffers[box_id]) >= 2:  # 确保有足够的历史帧
-                # 保存该盒子闭合前的最后一帧
-                target_frame = box_buffers[box_id][-2]
-                cv2.imwrite(
-                    f"capture_box_{box_id}_at_{frame_count}.jpg", 
-                    target_frame[int(box.xyxy[0][1]):int(box.xyxy[0][3]), 
-                                int(box.xyxy[0][0]):int(box.xyxy[0][2])]  # 裁剪盒子区域
-                )
-        
-        # 更新该盒子的状态和缓冲区
-        previous_statuses[box_id] = current_status
-        box_buffers[box_id].append(frame.copy())
-    
-    frame_count += 1
+    boxes, ids, classes = [], [], []
+    if results.boxes.id is not None:
+        boxes = results.boxes.xyxy.cpu().numpy()
+        ids = results.boxes.id.cpu().numpy().astype(int)
+        classes = results.boxes.cls.cpu().numpy().astype(int)
+
+    # save the current frame and detections in to the buffer
+    frame_buffer.append(frame.copy())
+    detection_buffer.append({int(i): (b, int(c)) for b, i, c in zip(boxes, ids, classes)})
+
+    for obj_id, cls in zip(ids, classes):
+        last_cls = last_class_per_id.get(obj_id)
+
+        # if class 1 → 0，resume ε frames
+        if last_cls == 1 and cls == 0:
+            print(f"Detected ID {obj_id} class 1→0 at frame {frame_id}, retrieving previous {epsilon} frames")
+            for offset, (f_img, dets) in enumerate(zip(frame_buffer, detection_buffer)):
+                if obj_id in dets:
+                    box, prev_cls = dets[obj_id]
+                    x1, y1, x2, y2 = map(int, box)
+                    crop = f_img[y1:y2, x1:x2]
+                    cv2.imwrite(f"{save_dir}/frame{frame_id - epsilon + offset}_id{obj_id}_cls{prev_cls}.jpg", crop)
+
+        last_class_per_id[obj_id] = cls
+
+    frame_id += 1
 
 cap.release()
+print("Done!")
