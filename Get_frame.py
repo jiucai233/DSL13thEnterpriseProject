@@ -1,60 +1,83 @@
 import cv2
-from collections import defaultdict, deque
 from ultralytics import YOLO
-import pickle
-import cv2
 import os
-from ultralytics import YOLO
+import math
 
-model = YOLO("best.pt")
-video_path = "data/raw_data/250503_pm_07.13.53_brown_clear_num=4.mp4"
-cap = cv2.VideoCapture(video_path)
+def load_video_frames(video_path):
+    """载入视频所有帧并返回帧列表及fps"""
+    cap = cv2.VideoCapture(video_path)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    frames = []
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        frames.append(frame)
+    cap.release()
+    return frames, fps
 
-# output directory for saving cropped images
-save_dir = "crops"
-os.makedirs(save_dir, exist_ok=True)
 
-# initialize variables
-last_class_per_id = {}
-frame_id = 0
+def detect_transitions(frames, model, tracker_cfg, pre_frames, post_frames):
+    """检测每个目标从open->close的帧索引"""
+    last_cls = {}
+    events = []  # 列表: (obj_id, frame_idx)
+    for idx, frame in enumerate(frames):
+        results = model.track(frame, persist=True, verbose=False, show=True,tracker="bytetrack.yaml")
+        for result in results:
+            if result.boxes and result.boxes.id is not None:
+                ids = result.boxes.id.numpy().astype(int)
+                classes = result.boxes.cls.numpy().astype(int)
+                for obj_id, cls in zip(ids, classes):
+                    prev = last_cls.get(obj_id)
+                    if prev in [7,8,9,10] and cls in [1,2,3,4]:
+                        events.append((obj_id, idx))
+                    last_cls[obj_id] = cls
+    return events
 
-# set epsilon( epsilon is the number of frames to save before the transition)
-epsilon = 5
-frame_buffer = deque(maxlen=epsilon)
-detection_buffer = deque(maxlen=epsilon)
-while True:
-    success, frame = cap.read()
-    if not success:
-        break
 
-    results = model.track(frame, persist=True, verbose=False, tracker="bytetrack.yaml")[0]
-    
-    boxes, ids, classes = [], [], []
-    if results.boxes.id is not None:
-        boxes = results.boxes.xyxy.cpu().numpy()
-        ids = results.boxes.id.cpu().numpy().astype(int)
-        classes = results.boxes.cls.cpu().numpy().astype(int)
+def save_clips(frames, fps, save_dir, events, pre_sec, post_sec):
+    """根据事件列表保存每个切片视频"""
+    os.makedirs(save_dir, exist_ok=True)
+    pre_frames = max(1, math.floor(fps * pre_sec))
+    post_frames = max(1, math.floor(fps * post_sec))
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    h, w = frames[0].shape[:2]
+    for i, (obj_id, idx) in enumerate(events):
+        start = max(0, idx - pre_frames)
+        end = min(len(frames) - 1, idx + post_frames)
+        out_path = os.path.join(save_dir, f"obj{obj_id}_idx{idx}_clip.mp4")
+        writer = cv2.VideoWriter(out_path, fourcc, fps, (w, h))
+        for f in frames[start:end+1]:
+            writer.write(f)
+        writer.release()
+        print(f"Saved clip for object {obj_id} at event {idx}: {out_path}")
 
-    # save the current frame and detections in to the buffer
-    frame_buffer.append(frame.copy())
-    detection_buffer.append({int(i): (b, int(c)) for b, i, c in zip(boxes, ids, classes)})
 
-    for obj_id, cls in zip(ids, classes):
-        last_cls = last_class_per_id.get(obj_id)
+def file_save(video_path):
+    filename = os.path.basename(video_path)
+    name_parts = os.path.splitext(filename)[0].split('_')
+    output_name = '_'.join(name_parts[3:])
+    save_dir = os.path.join("crops", output_name)
+    return save_dir
 
-        # if class 1 → 0，resume ε frames
-        if last_cls == 1 and cls == 0:
-            print(f"Detected ID {obj_id} class 1→0 at frame {frame_id}, retrieving previous {epsilon} frames")
-            for offset, (f_img, dets) in enumerate(zip(frame_buffer, detection_buffer)):
-                if obj_id in dets:
-                    box, prev_cls = dets[obj_id]
-                    x1, y1, x2, y2 = map(int, box)
-                    crop = f_img[y1:y2, x1:x2]
-                    cv2.imwrite(f"{save_dir}/frame{frame_id - epsilon + offset}_id{obj_id}_cls{prev_cls}.jpg", crop)
 
-        last_class_per_id[obj_id] = cls
+if __name__ == "__main__":
+    MODEL_PATH = "11classVerModel/best.pt"
+    VIDEO_PATH = "data/raw_data/250504_pm_07.57.52_brown_clear_num=2.mp4"
+    PRE_SEC = 2  # 转换前秒数
+    POST_SEC = 2  # 转换后秒数
+    TRACKER_CFG = "bytetrack.yaml"
 
-    frame_id += 1
+    # 加载模型和视频
+    model = YOLO(MODEL_PATH)
+    frames, fps = load_video_frames(VIDEO_PATH)
+    save_dir = file_save(VIDEO_PATH)
 
-cap.release()
-print("Done!")
+    # 检测转换事件
+    events = detect_transitions(frames, model, TRACKER_CFG, 
+                                pre_frames=max(1, math.floor(fps * PRE_SEC)),
+                                post_frames=max(1, math.floor(fps * POST_SEC)))
+
+    # 保存每个对象的剪辑
+    save_clips(frames, fps, save_dir, events, PRE_SEC, POST_SEC)
+    print("All clips generated.")
