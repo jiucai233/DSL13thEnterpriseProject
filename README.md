@@ -1,4 +1,3 @@
-````markdown
 # YOLO Object Detection Project
 
 This project implements a YOLOv8 object detection model for identifying objects in video and image data.
